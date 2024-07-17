@@ -9,7 +9,6 @@ base_url = "https://data.cresis.ku.edu/data/rds/"
 download_dir = "cresis_data"
 os.makedirs(download_dir, exist_ok=True)
 
-
 # Function to download files
 def download_file(url, download_path):
     response = requests.get(url)
@@ -20,11 +19,9 @@ def download_file(url, download_path):
     else:
         print(f"Failed to download: {url}")
 
-
 # Function to scrape files from a specific directory
 def scrape_files(base_url, subdir, file_ext, subfolder='', exclude_keyword=None):
-    # Ensure no trailing slash at the end of the URL components
-    url = f"{base_url}{subdir}".rstrip('/') + '/' + subfolder.lstrip('/')
+    url = f"{base_url}{subdir}{subfolder}".rstrip('/') + '/'
     print(f"Accessing URL: {url}")
     response = requests.get(url)
     if response.status_code != 200:
@@ -38,23 +35,21 @@ def scrape_files(base_url, subdir, file_ext, subfolder='', exclude_keyword=None)
         href = link.get('href')
         if href and href.endswith(file_ext) and (exclude_keyword is None or exclude_keyword not in href):
             files.append(href)
-        elif href and href.endswith('/') and not href.startswith('../'):
+        elif href and href.endswith('/') and not href.startswith('../') and not href.startswith('/'):
             directories.append(href)
 
-    # Create directory for the current subfolder
-    subdir_path = os.path.join(download_dir, subdir.replace('/', '_'), subfolder.replace('/', '_'))
-    os.makedirs(subdir_path, exist_ok=True)
+    if files:
+        subdir_path = os.path.join(download_dir, subdir.replace('/', '_'), subfolder.replace('/', '_'))
+        os.makedirs(subdir_path, exist_ok=True)
+        for file in files:
+            file_url = url + file
+            download_path = os.path.join(subdir_path, file)
+            download_file(file_url, download_path)
 
-    # Download files
-    for file in files:
-        file_url = url + file
-        download_path = os.path.join(subdir_path, file)
-        download_file(file_url, download_path)
-
-    # Recursively scrape subdirectories
     for directory in directories:
-        scrape_files(base_url, subdir, file_ext, subfolder + directory, exclude_keyword)
-
+        print(f"Found subdirectory: {directory}, navigating into it")
+        new_subfolder = os.path.join(subfolder.rstrip('/'), directory.lstrip('/'))
+        scrape_files(base_url, subdir, file_ext, new_subfolder, exclude_keyword)
 
 # Function to get the list of relevant directories
 def get_relevant_directories(base_url):
@@ -77,18 +72,11 @@ def get_relevant_directories(base_url):
         print("No relevant directories found")
     return relevant_dirs
 
-
 # Main code to scrape data for the years 2018 to 2023
 relevant_directories = get_relevant_directories(base_url)
 for subdir in relevant_directories:
     print(f"Scraping data from {subdir}")
-    scrape_files(base_url, subdir, '.csv', subfolder='csv/')
+    #scrape_files(base_url, subdir, '.csv', subfolder='csv/')
     scrape_files(base_url, subdir, '.mat', subfolder='CSARP_qlook/', exclude_keyword='_img_')
-
-
-
-
-
-
 
 
