@@ -1,8 +1,9 @@
 import numpy as np
-import scipy.io
+#import scipy.io
 import pandas as pd
 import matplotlib.pyplot as plt
 import pyproj
+import h5py
 
 def ll2ps(lat, lon):
     # Define the polar stereographic projection
@@ -12,11 +13,15 @@ def ll2ps(lat, lon):
     return x, y
 
 def snrfinder(csv, matfile):
-    # Load .mat file
-    mat = scipy.io.loadmat(matfile)
-    Data = mat['Data']
-    Time = mat['Time'].flatten()
-    Surface = mat['Surface'].flatten()
+    #Load .mat file
+    mat = h5py.File(matfile, 'r')
+    Data = mat.get('Data')
+    Data = np.array(Data)
+    Time = mat.get('Time')
+    Time = np.array(Time)
+    Surface = mat.get('Surface')
+    Surface = np.array(Surface)
+
     
     # Load .csv file
     csvdata = pd.read_csv(csv)
@@ -74,5 +79,7 @@ def snrfinder(csv, matfile):
 
     values = np.column_stack((x, y, snr_list))  # Returns ps coordinates + snr for future use
     return values
+
+snrfinder('Data_20181010_01.csv', 'Data_20181010_01_001.mat') # testing the function on a couple of data files 
 
 snrfinder('Data_20181010_01.csv', 'Data_20181010_01_001.mat')
