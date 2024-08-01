@@ -1,10 +1,10 @@
 import os
-from tkinter import filedialog
-from tkinter import Tk
+from tkinter import filedialog, Tk
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from snrfinder import snrfinder
+from scipy.io import loadmat
 
 # Hide the root window of Tkinter
 root = Tk()
@@ -13,64 +13,64 @@ root.withdraw()
 # Specify the folder where the files live
 myFolder = filedialog.askdirectory()
 
-# Check to make sure that folder actually exists. Warn user if it doesn't.
-if not os.path.isdir(myFolder):
+# Check if the folder exists
+while not os.path.isdir(myFolder):
     print(f'Error: The following folder does not exist:\n{myFolder}\nPlease specify a new folder.')
     myFolder = filedialog.askdirectory()
     if myFolder == '':
-        # User clicked Cancel
-        exit()
+        exit()  # User clicked Cancel
 
-# Get a list of all files in the folder with the desired file name pattern
+# Get a list of CSV and MAT files in the folder
 csv_list = [os.path.join(dp, f) for dp, dn, filenames in os.walk(myFolder) for f in filenames if f.endswith('.csv')]
-mat_list = [os.path.join(dp, f) for dp, dn, filenames in os.walk(myFolder) for f in filenames if f.endswith('.mat')]
+mat_files = {os.path.splitext(f)[0]: os.path.join(dp, f) for dp, dn, filenames in os.walk(myFolder) for f in filenames if f.endswith('.mat')}
 
 snr_list = []
 
 for csvfullFileName in csv_list:
-    csvFileName = os.path.basename(csvfullFileName)
-    name = os.path.splitext(csvFileName)[0]
-    matFileName = name + '.mat'
-    matfullFileName = os.path.join(myFolder, matFileName)
+    name = os.path.splitext(os.path.basename(csvfullFileName))[0]
 
-    if matFileName not in [os.path.basename(f) for f in mat_list]:
-        print(f'Could not find {matFileName}')
+    if name not in mat_files:
+        print(f'Could not find {name}.mat')
         continue
 
-    print(f'Now reading {csvFileName} and {matFileName}')
+    csvRelativePath = os.path.relpath(csvfullFileName, myFolder)
+    matRelativePath = os.path.relpath(mat_files[name], myFolder)
 
-    snrs = snrfinder(csvfullFileName, matfullFileName)
+    csvPath = 'cresis_data\\2023_Antarctica_BaslerMKB_\\' + csvRelativePath
+    matPath = 'cresis_data\\2023_Antarctica_BaslerMKB_\\' + matRelativePath
+
+    try: #attempt to open mat file
+        mat = loadmat(matPath)
+    except OSError as e:
+        print(f"Error opening file '{matPath}': {e}. Moving on to next file.")
+        continue # next file path
+
+    print(f'Now reading {csvPath} and {matPath}')
+
+    snrs = snrfinder(csvPath, matPath)
     snr_list.append(snrs)
-
+   
 snr_list = np.vstack(snr_list)
 
-x = snr_list[:, 0]
-y = snr_list[:, 1]
-snr = snr_list[:, 2]
+x, y, snr = snr_list[:, 0], snr_list[:, 1], snr_list[:, 2]
 
-plt.scatter(x, y, c=snr, s=20, cmap='viridis', edgecolor='k', alpha=0.75)
-cb = plt.colorbar()
-cb.set_label('snr')
+plt.scatter(x, y, c=snr, s=20, cmap='viridis', edgecolor='none', alpha=0.75)
+plt.colorbar(label='snr')
 plt.show()
 
-# Check if any coordinates are close/line up to UTIG data coordinates
+# Check if any coordinates are close to UTIG data coordinates
 utig_data = pd.read_csv('snr.csv')
-utigX = utig_data['x'].values
-utigY = utig_data['y'].values
+utigX, utigY = utig_data['x'].values, utig_data['y'].values
+utig_snr = utig_data['snr'].values
 
-X1, X2 = np.meshgrid(x, utigX)
-Y1, Y2 = np.meshgrid(y, utigY)
+# Calculate the distances and find close points
+threshold = 5000
+distances = np.sqrt((x[:, np.newaxis] - utigX)**2 + (y[:, np.newaxis] - utigY)**2)
 
-# Set threshold for closeness
-threshold = 2
-
-# Calculate the distances
-distances = np.sqrt((X1 - X2.T)**2 + (Y1 - Y2.T)**2)
-
-# Find the closest distances and the corresponding indices
-idx = np.where(distances < threshold)
-i_min, j_min = idx
+# Find points within the threshold
+i_min, j_min = np.where(distances < threshold)
 
 # Closest points
-closest_point_set1 = np.column_stack((x[i_min], y[i_min]))
-closest_point_set2 = np.column_stack((utigX[j_min], utigY[j_min]))
+closest_point_set1 = np.column_stack((x[i_min], y[i_min], snr[i_min]))
+closest_point_set2 = np.column_stack((utigX[j_min], utigY[j_min], utig_snr[j_min]))
+#np.row_stack((closest_point_set1, closest_point_set2))
