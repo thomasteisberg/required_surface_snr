@@ -101,7 +101,7 @@ def get_relevant_directories(base_url):
         print(f"Found href: {href}")
         if href and 'Antarctica' in href:
             year = href.split('_')[0]
-            if year.isdigit() and 2018 <= int(year) <= 2022:
+            if year.isdigit() and int(year) == 2023:
                 relevant_dirs.append(href)
     if not relevant_dirs:
         print("No relevant directories found")
