@@ -1,3 +1,13 @@
+'''
+This script is designed to scrap data from https://data.cresis.ku.edu/data/rds/
+website to collect .csv and .mat files to be latter used. This script includes
+error handling and saves the files to a directory the user names (it is named here
+"cresis_data").
+
+Code by: Adam Alhousiki
+
+'''
+
 import requests
 from bs4 import BeautifulSoup
 import os
@@ -99,9 +109,9 @@ def get_relevant_directories(base_url):
     for link in soup.find_all('a'):
         href = link.get('href')
         print(f"Found href: {href}")
-        if href and 'Antarctica' in href:
+        if href and 'Antarctica' in href: # Arguments to change according to user's needs
             year = href.split('_')[0]
-            if year.isdigit() and int(year) == 2023:
+            if year.isdigit() and int(year) == 2023: # Arguments to change according to user's needs
                 relevant_dirs.append(href)
     if not relevant_dirs:
         print("No relevant directories found")
