@@ -13,7 +13,8 @@ def ll2ps(lat, lon):
     return x, y
 
 def snrfinder(csv, matfile):
-
+    sci = False
+    hdf = False
     #Load .mat file
     try: #attempt to open with scipy
         mat = loadmat(matfile)
@@ -23,6 +24,7 @@ def snrfinder(csv, matfile):
         Time = np.array(Time)
         Surface = mat.get('Surface')
         Surface = np.array(Surface)
+        sci = True
     except NotImplementedError: #use hdf reader if scipy doesn't work
         mat = h5py.File(matfile, 'r')
         Data = mat.get('Data')
@@ -31,6 +33,7 @@ def snrfinder(csv, matfile):
         Time = np.array(Time)
         Surface = mat.get('Surface')
         Surface = np.array(Surface)
+        hdf = True
 
     # Load .csv file
     csvdata = pd.read_csv(csv)
@@ -65,12 +68,15 @@ def snrfinder(csv, matfile):
         fasttimeS = np.argmin(np.abs(Time - propdelayS[i]))  # Finds surface fasttime
         slowtime = np.argmin(np.abs(Surface - propdelayS[i]))  # Finds slowtime
 
-        surfwatts = np.abs(Data[slowtime, fasttimeS]) * geom_spreadingS  # Pwr w/ geometric spreading correction
-
         # Find bed data
         fasttimeB = np.argmin(np.abs(Time - propdelayB[i]))  # Finds surface fasttime
 
-        bedwatts = np.abs(Data[slowtime, fasttimeB]) * geom_spreadingB
+        if (hdf): # FLIP THE INDEXES INTO THE DATA MATRIX
+            surfwatts = np.abs(Data[slowtime, fasttimeS]) * geom_spreadingS  # Pwr w/ geometric spreading correction
+            bedwatts = np.abs(Data[slowtime, fasttimeB]) * geom_spreadingB
+        else: # SAME AS MATLAB INDEXING
+            surfwatts = np.abs(Data[fasttimeS, slowtime]) * geom_spreadingS
+            bedwatts = np.abs(Data[fasttimeB, slowtime]) * geom_spreadingB
 
         # Find SNR using surface and bed power difference
         snr = 10 * np.log10(surfwatts / bedwatts)
@@ -91,4 +97,5 @@ def snrfinder(csv, matfile):
 
 #snrfinder(r'cresis_data\2023_Antarctica_BaslerMKB_\csv_20240107_01_\Data_20240107_01_028.csv', r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20240107_01_\Data_20240107_01_028.mat')
 #snrfinder('Data_20240107_01_028.csv', 'Data_20240107_01_028.mat')
-#snrfinder(r'cresis_data\2018_Antarctica_DC8_\csv_20181010_01_\Data_20181010_01_001.csv', r'cresis_data\2018_Antarctica_DC8_\CSARP_qlook_20181010_01_\Data_20181010_01_001.mat')
+#snrfinder(r'cresis_data\2018_Antarctica_DC8_\csv_20181010_01_\Data_20181010_01_001.csv', r'cresis_data\2018_Antarctica_DC8_\CSARP_qlook_20181010_01_\Data_20181010_01_001.mat') # uses hdf reader, flips data matrix from MatLab version
+#snrfinder(r'cresis_data\2023_Antarctica_BaslerMKB_\csv_20240104_01_\Data_20240104_01_029.csv', r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20240104_01_\Data_20240104_01_029.mat') # uses scipy reader, matrix dimensions are the same as in Matlab
