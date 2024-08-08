@@ -1,28 +1,36 @@
 import numpy as np
-#import scipy.io
+import scipy.io
 import pandas as pd
-import matplotlib.pyplot as plt
 import pyproj
 import h5py
 
+
 def ll2ps(lat, lon):
     # Define the polar stereographic projection
-    # For example, EPSG:3031 is commonly used for the Antarctic region
     proj_ps = pyproj.Proj(proj='stere', lat_ts=-71, lat_0=-90, lon_0=0, k=1, x_0=0, y_0=0, datum='WGS84')
     x, y = proj_ps(lon, lat)
     return x, y
 
-def snrfinder(csv, matfile):
-    #Load .mat file
-    mat = h5py.File(matfile, 'r')
-    Data = mat.get('Data')
-    Data = np.array(Data)
-    Time = mat.get('Time')
-    Time = np.array(Time)
-    Surface = mat.get('Surface')
-    Surface = np.array(Surface)
 
-    
+def load_mat_file(matfile):
+    try:
+        mat = scipy.io.loadmat(matfile)
+        if 'Data' in mat and 'Time' in mat and 'Surface' in mat:
+            return mat['Data'], mat['Time'].flatten(), mat['Surface'].flatten()
+    except NotImplementedError as e:
+        if 'HDF reader for matlab v7.3' in str(e):
+            with h5py.File(matfile, 'r') as f:
+                Data = f['Data'][()]
+                Time = f['Time'][()].flatten()
+                Surface = f['Surface'][()].flatten()
+                return Data, Time, Surface
+    raise ValueError(f"Could not load mat file: {matfile}")
+
+
+def snrfinder(csv, matfile):
+    # Load .mat file
+    Data, Time, Surface = load_mat_file(matfile)
+
     # Load .csv file
     csvdata = pd.read_csv(csv)
     surf = csvdata['SURFACE']
@@ -72,14 +80,5 @@ def snrfinder(csv, matfile):
         snr_list.append(snr)
 
     x, y = ll2ps(lat_list, lon_list)
-    plt.scatter(x, y, 20, snr_list, cmap='viridis')
-    cb = plt.colorbar()
-    cb.set_label('snr')
-    plt.show()
-
     values = np.column_stack((x, y, snr_list))  # Returns ps coordinates + snr for future use
     return values
-
-snrfinder('Data_20181010_01.csv', 'Data_20181010_01_001.mat') # testing the function on a couple of data files 
-
-snrfinder('Data_20181010_01.csv', 'Data_20181010_01_001.mat')
