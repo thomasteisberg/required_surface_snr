@@ -20,35 +20,51 @@ while not os.path.isdir(myFolder):
     if myFolder == '':
         exit()  # User clicked Cancel
 
-# Get a list of CSV and MAT files in the folder
-csv_list = [os.path.join(dp, f) for dp, dn, filenames in os.walk(myFolder) for f in filenames if f.endswith('.csv')]
-mat_files = {os.path.splitext(f)[0]: os.path.join(dp, f) for dp, dn, filenames in os.walk(myFolder) for f in filenames if f.endswith('.mat')}
+# Top-level directories to process
+top_level_dirs = ['2023_Antarctica_BaslerMKB_', '2022_Antarctica_BaslerMKB_', '2018_Antarctica_DC8_', '2019_Antarctica_GV_']
 
-snr_list = []
-
-for csvfullFileName in csv_list:
-    name = os.path.splitext(os.path.basename(csvfullFileName))[0]
-
-    if name not in mat_files:
-        print(f'Could not find {name}.mat')
+for top_level_dir in top_level_dirs:
+    base_dir = os.path.join(myFolder, top_level_dir)
+    if not os.path.isdir(base_dir):
+        print(f"Directory does not exist: {base_dir}")
         continue
 
-    csvRelativePath = os.path.relpath(csvfullFileName, myFolder)
-    matRelativePath = os.path.relpath(mat_files[name], myFolder)
+    # Get a list of CSV and MAT files in the folder
+    csv_list = [os.path.join(dp, f) for dp, dn, filenames in os.walk(base_dir) for f in filenames if f.endswith('.csv')]
+    mat_files = {os.path.splitext(f)[0]: os.path.join(dp, f) for dp, dn, filenames in os.walk(base_dir) for f in filenames if f.endswith('.mat')}
 
-    csvPath = 'cresis_data\\2023_Antarctica_BaslerMKB_\\' + csvRelativePath
-    matPath = 'cresis_data\\2023_Antarctica_BaslerMKB_\\' + matRelativePath
+    snr_list = []
 
-    try: #attempt to open mat file
-        mat = loadmat(matPath)
-    except OSError as e:
-        print(f"Error opening file '{matPath}': {e}. Moving on to next file.")
-        continue # next file path
+    for csvfullFileName in csv_list:
+        name = os.path.splitext(os.path.basename(csvfullFileName))[0]
 
-    print(f'Now reading {csvPath} and {matPath}')
+        if name not in mat_files:  
+            print(f'Could not find {name}.mat')
+            continue
 
-    snrs = snrfinder(csvPath, matPath)
-    snr_list.append(snrs)
+        csvRelativePath = os.path.relpath(csvfullFileName, myFolder)
+        matRelativePath = os.path.relpath(mat_files[name], myFolder)
+
+        csvPath = 'cresis_data\\' + csvRelativePath
+        matPath = 'cresis_data\\' + matRelativePath
+
+        try: #attempt to open mat file
+            mat = loadmat(matPath)
+            print(f"Using scipy reader for .mat files")
+        except NotImplementedError:
+            print(f"Using hdf reader for .mat files")
+            pass
+        except OSError as e:
+            print(f"Error opening file '{matPath}': {e}. Moving on to next file.")
+            continue # next file path
+
+        print(f'Now reading {csvPath} and {matPath}')
+
+        snrs = snrfinder(csvPath, matPath)
+        snr_list.append(snrs)
+
+
+
 # CRESIS DATA   
 snr_list = np.vstack(snr_list)
 
@@ -62,21 +78,3 @@ print(f'Data saved to {output_csv_path}')
 plt.scatter(x, y, c=snr, s=20, cmap='viridis', edgecolor='none', alpha=0.75)
 plt.colorbar(label='snr')
 plt.show()
-
-# -------------------------------
-# Check if any coordinates are close to UTIG data coordinates
-""" utig_data = pd.read_csv('snr.csv')
-utigX, utigY = utig_data['x'].values, utig_data['y'].values
-utig_snr = utig_data['snr'].values
-
-# Calculate the distances and find close points
-threshold = 5000
-distances = np.sqrt((x[:, np.newaxis] - utigX)**2 + (y[:, np.newaxis] - utigY)**2)
-
-# Find points within the threshold
-i_min, j_min = np.where(distances < threshold)
-
-# Closest points
-closest_point_set1 = np.column_stack((x[i_min], y[i_min], snr[i_min]))
-closest_point_set2 = np.column_stack((utigX[j_min], utigY[j_min], utig_snr[j_min])) """
-#np.row_stack((closest_point_set1, closest_point_set2))
