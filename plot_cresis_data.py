@@ -21,8 +21,8 @@ while not os.path.isdir(myFolder):
         exit()  # User clicked Cancel
 
 # Top-level directories to process
-top_level_dirs = ['2023_Antarctica_BaslerMKB_', '2022_Antarctica_BaslerMKB_', '2018_Antarctica_DC8_', '2019_Antarctica_GV_']
-
+top_level_dirs = ['2023_Antarctica_BaslerMKB_', '2022_Antarctica_BaslerMKB_', '2018_Antarctica_DC8_', '2018_Antarctica_Ground_', '2019_Antarctica_GV_']
+snr_list = []
 for top_level_dir in top_level_dirs:
     base_dir = os.path.join(myFolder, top_level_dir)
     if not os.path.isdir(base_dir):
@@ -33,7 +33,6 @@ for top_level_dir in top_level_dirs:
     csv_list = [os.path.join(dp, f) for dp, dn, filenames in os.walk(base_dir) for f in filenames if f.endswith('.csv')]
     mat_files = {os.path.splitext(f)[0]: os.path.join(dp, f) for dp, dn, filenames in os.walk(base_dir) for f in filenames if f.endswith('.mat')}
 
-    snr_list = []
 
     for csvfullFileName in csv_list:
         name = os.path.splitext(os.path.basename(csvfullFileName))[0]
@@ -62,7 +61,6 @@ for top_level_dir in top_level_dirs:
 
         snrs = snrfinder(csvPath, matPath)
         snr_list.append(snrs)
-
 
 
 # CRESIS DATA   
