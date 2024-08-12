@@ -44,18 +44,19 @@ for top_level_dir in top_level_dirs:
         csvRelativePath = os.path.relpath(csvfullFileName, myFolder)
         matRelativePath = os.path.relpath(mat_files[name], myFolder)
 
-        csvPath = 'cresis_data\\' + csvRelativePath
-        matPath = 'cresis_data\\' + matRelativePath
+        # Construct the paths in a platform-independent way
+        csvPath = os.path.join('cresis_data', csvRelativePath)
+        matPath = os.path.join('cresis_data', matRelativePath)
 
-        try: #attempt to open mat file
+        try:  # attempt to open mat file
             mat = loadmat(matPath)
             print(f"Using scipy reader for .mat files")
         except NotImplementedError:
             print(f"Using hdf reader for .mat files")
             pass
         except OSError as e:
-            print(f"Error opening file '{matPath}': {e}. Moving on to next file.")
-            continue # next file path
+            print(f"Error opening file '{matPath}': {e}. Moving on to the next file.")
+            continue  # next file path
 
         print(f'Now reading {csvPath} and {matPath}')
 
@@ -63,16 +64,19 @@ for top_level_dir in top_level_dirs:
         snr_list.append(snrs)
 
 
-# CRESIS DATA   
+# CRESIS DATA
 snr_list = np.vstack(snr_list)
 
 x, y, snr = snr_list[:, 0], snr_list[:, 1], snr_list[:, 2]
 
 df = pd.DataFrame(snr_list, columns=['x', 'y', 'snr'])
-output_csv_path = 'snr_data.csv'
+
+# Save the CSV file in a cross-platform way
+output_csv_path = os.path.join(myFolder, 'snr_data.csv')
 df.to_csv(output_csv_path, index=False)
 print(f'Data saved to {output_csv_path}')
 
+# Plot the data
 plt.scatter(x, y, c=snr, s=20, cmap='viridis', edgecolor='none', alpha=0.75)
 plt.colorbar(label='snr')
 plt.show()
