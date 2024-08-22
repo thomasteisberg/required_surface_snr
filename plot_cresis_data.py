@@ -21,57 +21,65 @@ while not os.path.isdir(myFolder):
         exit()  # User clicked Cancel
 
 # Top-level directories to process
-top_level_dirs = ['2023_Antarctica_BaslerMKB_', '2022_Antarctica_BaslerMKB_', '2018_Antarctica_DC8_', '2018_Antarctica_Ground_', '2019_Antarctica_GV_']
-snr_list = []
-for top_level_dir in top_level_dirs:
-    base_dir = os.path.join(myFolder, top_level_dir)
-    if not os.path.isdir(base_dir):
-        print(f"Directory does not exist: {base_dir}")
-        continue
+top_level_dirs = [
+    '2023_Antarctica_BaslerMKB_', '2022_Antarctica_BaslerMKB_', 
+    '2018_Antarctica_DC8_', '2018_Antarctica_Ground_', '2019_Antarctica_GV_'
+]
 
-    # Get a list of CSV and MAT files in the folder
-    csv_list = [os.path.join(dp, f) for dp, dn, filenames in os.walk(base_dir) for f in filenames if f.endswith('.csv')]
-    mat_files = {os.path.splitext(f)[0]: os.path.join(dp, f) for dp, dn, filenames in os.walk(base_dir) for f in filenames if f.endswith('.mat')}
+output_csv_path = 'snr_data_complete.csv'
+with open(output_csv_path, 'w') as outfile:
+    outfile.write('x,y,snr\n')  # Write the header
 
-
-    for csvfullFileName in csv_list:
-        name = os.path.splitext(os.path.basename(csvfullFileName))[0]
-
-        if name not in mat_files:  
-            print(f'Could not find {name}.mat')
+    for top_level_dir in top_level_dirs:
+        base_dir = os.path.join(myFolder, top_level_dir)
+        if not os.path.isdir(base_dir):
+            print(f"Directory does not exist: {base_dir}")
             continue
 
-        csvRelativePath = os.path.relpath(csvfullFileName, myFolder)
-        matRelativePath = os.path.relpath(mat_files[name], myFolder)
+        # Get a list of CSV and MAT files in the folder
+        mat_files = {
+            os.path.splitext(f)[0]: os.path.join(dp, f) 
+            for dp, dn, filenames in os.walk(base_dir) 
+            for f in filenames if f.endswith('.mat')
+        }
 
-        csvPath = 'cresis_data\\' + csvRelativePath
-        matPath = 'cresis_data\\' + matRelativePath
+        csv_list = [
+            os.path.join(dp, f) 
+            for dp, dn, filenames in os.walk(base_dir) 
+            for f in filenames if f.endswith('.csv')
+        ]
 
-        try: #attempt to open mat file
-            mat = loadmat(matPath)
-            print(f"Using scipy reader for .mat files")
-        except NotImplementedError:
-            print(f"Using hdf reader for .mat files")
-            pass
-        except OSError as e:
-            print(f"Error opening file '{matPath}': {e}. Moving on to next file.")
-            continue # next file path
+        for csvfullFileName in csv_list:
+            name = os.path.splitext(os.path.basename(csvfullFileName))[0]
 
-        print(f'Now reading {csvPath} and {matPath}')
+            if name not in mat_files:
+                print(f'Could not find {name}.mat')
+                continue
 
-        snrs = snrfinder(csvPath, matPath)
-        snr_list.append(snrs)
+            csvRelativePath = os.path.relpath(csvfullFileName, myFolder)
+            matRelativePath = os.path.relpath(mat_files[name], myFolder)
 
+            csvPath = 'cresis_data\\' + csvRelativePath
+            matPath = 'cresis_data\\' + matRelativePath
+
+            """ try:
+                mat = loadmat(matPath)
+            except NotImplementedError:
+                pass
+            except OSError as e:
+                print(f"Error opening file '{matPath}': {e}. Moving on to next file.")
+                continue # next file path """
+
+            print(f'Now reading {csvPath} and {matPath}')
+
+            snrs = snrfinder(csvPath, matPath)
+
+            # Save results incrementally
+            np.savetxt(outfile, snrs, delimiter=',', fmt='%f')
 
 # CRESIS DATA   
-snr_list = np.vstack(snr_list)
-
-x, y, snr = snr_list[:, 0], snr_list[:, 1], snr_list[:, 2]
-
-df = pd.DataFrame(snr_list, columns=['x', 'y', 'snr'])
-output_csv_path = 'snr_data_complete.csv'
-df.to_csv(output_csv_path, index=False)
-print(f'Data saved to {output_csv_path}')
+snr_data = np.loadtxt(output_csv_path, delimiter=',', skiprows=1)
+x, y, snr = snr_data[:, 0], snr_data[:, 1], snr_data[:, 2]
 
 plt.scatter(x, y, c=snr, s=20, cmap='viridis', edgecolor='none', alpha=0.75)
 plt.colorbar(label='snr')
