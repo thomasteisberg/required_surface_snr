@@ -12,6 +12,32 @@ def ll2ps(lat, lon):
     x, y = proj_ps(lon, lat)
     return x, y
 
+#--------------------------snrfinder revision---------------------------------------------------------------------------------------------
+def radargram(datafile):
+    try: #attempt to open with scipy
+        mat = loadmat(datafile)
+        Data = mat.get('Data')
+        Data = np.transpose(Data)
+    except NotImplementedError: #use hdf reader if scipy doesn't work
+        mat = h5py.File(datafile, 'r')
+        Data = mat.get('Data')
+        #Data = np.transpose(Data)
+    
+    d = 10 * np.log10(np.abs(Data))
+    
+    plt.imshow(np.abs(d), cmap='gray')
+    #plt.show()
+
+def find_closest_point(x, y, x_points, y_points):
+    
+    # Calculate squared Euclidean distance to avoid sqrt for efficiency
+    distances = (x_points - x)**2 + (y_points - y)**2
+    # Find the index of the minimum distance
+    index = np.argmin(distances)
+    #closest_point = [x_points[index], y_points[index]]
+
+    return index
+
 def snrfinder(csv, matfile):
     sci = False
     hdf = False
@@ -19,83 +45,112 @@ def snrfinder(csv, matfile):
     try: #attempt to open with scipy
         mat = loadmat(matfile)
         Data = mat.get('Data')
-        Data = np.array(Data)
+        #Data = np.array(Data, copy = False)
+        Data = np.transpose(Data)
         Time = mat.get('Time')
-        Time = np.array(Time)
-        Surface = mat.get('Surface')
-        Surface = np.array(Surface)
+        #Time = np.array(Time, copy = False)
+        Time = np.transpose(Time)
+        LonMat = mat.get('Longitude')
+        #LonMat = np.array(LonMat, copy = False)
+        LonMat = np.transpose(LonMat)
+        LatMat = mat.get('Latitude')
+        #LatMat = np.array(LatMat, copy = False)
+        LatMat = np.transpose(LatMat)
         sci = True
     except NotImplementedError: #use hdf reader if scipy doesn't work
         mat = h5py.File(matfile, 'r')
         Data = mat.get('Data')
-        Data = np.array(Data)
+        #Data = np.array(Data, copy = False)
         Time = mat.get('Time')
-        Time = np.array(Time)
-        Surface = mat.get('Surface')
-        Surface = np.array(Surface)
+        #Time = np.array(Time, copy = False)
+        LonMat = mat.get('Longitude')
+        #LonMat = np.array(LonMat, copy = False)
+        LatMat = mat.get('Latitude')
+        #LatMat = np.array(LatMat, copy = False)
         hdf = True
 
+    #radargram(matfile)
     # Load .csv file
     csvdata = pd.read_csv(csv)
     surf = csvdata['SURFACE']
     bott = csvdata['BOTTOM']
     elev = csvdata['ELEVATION']
     thicc = csvdata['THICK']
-    lon = csvdata['LON']
-    lat = csvdata['LAT']
+    csv_lon = csvdata['LON']
+    csv_lat = csvdata['LAT']
+    utc = csvdata['UTCTIMESOD']
+
     e_ice = 3.15
 
-    surf_real = elev - surf
-    bott_real = elev - bott
-    v = 299792458 / np.sqrt(e_ice)
-    propdelayS = surf_real / v
-    propdelayB = bott_real / v
+    # convert latitude and longitude to PS coordinates
+    [xMat, yMat] = ll2ps(LatMat, LonMat)
+    [xCSV, yCSV] = ll2ps(csv_lat, csv_lon)
 
-    lon_list = []
-    lat_list = []
+    """ csv_i_list = []
+    mat_i_list = [] """
+    x_list = []
+    y_list = []
     snr_list = []
 
-    for i in range(len(csvdata)):
+    # Calculate Propogation Delays
+    v = 299792458 / np.sqrt(e_ice)
+    propdelayS = (surf / 299792458) * 2
+    propdelayB = (((bott - surf) / v) * 2)  + propdelayS
+
+    for slowtime in range(len(xMat)): # loop through coordinates in the .mat file
+        x = xMat[slowtime]
+        y = yMat[slowtime]
+
+        # find closest point in .csv file
+        csv_i = find_closest_point(x, y, xCSV, yCSV)
+
         # Check if line has any missing data
-        if (surf[i] == -9999 or bott[i] == -9999 or elev[i] == -9999 or thicc[i] == -9999):
+        if (surf[csv_i] == -9999 or bott[csv_i] == -9999 or elev[csv_i] == -9999 or thicc[csv_i] == -9999):
             continue
 
+        # plot .csv index vs .mat index
+        """ csv_i_list.append(csv_i)
+        mat_i_list.append(mat_i) """
+
+        # find fasttimes
+        fasttimeS = np.argmin(np.abs(Time - propdelayS[csv_i]))  # Finds surface fasttime
+        fasttimeB = np.argmin(np.abs(Time - propdelayB[csv_i]))  # Finds bed fasttime
+
         # Find geometric spreading correction
-        geom_spreadingB = (surf[i] + (thicc[i] / np.sqrt(e_ice))) ** 2
-        geom_spreadingS = (surf[i]) ** 2
+        geom_spreadingB = (surf[csv_i] + (thicc[csv_i] / np.sqrt(e_ice))) ** 2
+        geom_spreadingS = (surf[csv_i]) ** 2
 
-        # Find surface data
-        fasttimeS = np.argmin(np.abs(Time - propdelayS[i]))  # Finds surface fasttime
-        slowtime = np.argmin(np.abs(Surface - propdelayS[i]))  # Finds slowtime
+        # Find reflected power in data matrix (watts), multiply by geom spreading
+        surfwatts = np.abs(Data[slowtime, fasttimeS]) * geom_spreadingS  # Pwr w/ geometric spreading correction
+        bedwatts = np.abs(Data[slowtime, fasttimeB]) * geom_spreadingB
 
-        # Find bed data
-        fasttimeB = np.argmin(np.abs(Time - propdelayB[i]))  # Finds surface fasttime
+        # Plot slowtime and fasttime on radargram(for debugging purposes)
+        """ plt.scatter(fasttimeS, slowtime,     color='red', s=20)
+        plt.scatter(fasttimeB, slowtime,     color='blue', s=20) """
 
-        if (hdf): # FLIP THE INDEXES INTO THE DATA MATRIX
-            surfwatts = np.abs(Data[slowtime, fasttimeS]) * geom_spreadingS  # Pwr w/ geometric spreading correction
-            bedwatts = np.abs(Data[slowtime, fasttimeB]) * geom_spreadingB
-        else: # SAME AS MATLAB INDEXING
-            surfwatts = np.abs(Data[fasttimeS, slowtime]) * geom_spreadingS
-            bedwatts = np.abs(Data[fasttimeB, slowtime]) * geom_spreadingB
-
-        # Find SNR using surface and bed power difference
+        # calculate required surface snr (dB)
         snr = 10 * np.log10(surfwatts / bedwatts)
 
-        # Add to list of data to plot
-        lon_list.append(lon[i])
-        lat_list.append(lat[i])
+        # Add to list of data to plot 
+        x_list.append(x)
+        y_list.append(y)
         snr_list.append(snr)
 
-    x, y = ll2ps(lat_list, lon_list)
-    """ plt.scatter(x, y, 20, snr_list, cmap='viridis')
-    cb = plt.colorbar()
-    cb.set_label('snr')
+    #plt.scatter(mat_i_list, csv_i_list) 
+
+    """ plt.title('mat file index vs csv file index')
+    plt.xlabel('mat file index')
+    plt.ylabel('csv file index')
+    plt.tight_layout()
     plt.show() """
 
-    values = np.column_stack((x, y, snr_list))  # Returns ps coordinates + snr for future use
+    values = np.column_stack((x_list, y_list, snr_list))  # Returns ps coordinates + snr for future use
     return values
 
-#snrfinder(r'cresis_data\2023_Antarctica_BaslerMKB_\csv_20240107_01_\Data_20240107_01_028.csv', r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20240107_01_\Data_20240107_01_028.mat')
-#snrfinder('Data_20240107_01_028.csv', 'Data_20240107_01_028.mat')
-#snrfinder(r'cresis_data\2018_Antarctica_DC8_\csv_20181010_01_\Data_20181010_01_001.csv', r'cresis_data\2018_Antarctica_DC8_\CSARP_qlook_20181010_01_\Data_20181010_01_001.mat') # uses hdf reader, flips data matrix from MatLab version
+
 #snrfinder(r'cresis_data\2023_Antarctica_BaslerMKB_\csv_20240104_01_\Data_20240104_01_029.csv', r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20240104_01_\Data_20240104_01_029.mat') # uses scipy reader, matrix dimensions are the same as in Matlab
+#snrfinder(r'cresis_data\2018_Antarctica_DC8_\csv_20181010_01_\Data_20181010_01_001.csv', r'cresis_data\2018_Antarctica_DC8_\CSARP_qlook_20181010_01_\Data_20181010_01_001.mat') # uses hdf reader, flips data matrix from MatLab version
+#radargram(r'cresis_data\2018_Antarctica_DC8_\CSARP_qlook_20181010_01_\Data_20181010_01_001.mat')
+#radargram(r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20240104_01_\Data_20240104_01_029.mat')
+#snrfinder(r'cresis_data\2023_Antarctica_BaslerMKB_\csv_20231209_01_\Data_20231209_01_009.csv', r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20231209_01_\Data_20231209_01_009.mat')
+#snrfinder(r'cresis_data\2023_Antarctica_BaslerMKB_\csv_20231221_01_\Data_20231221_01_021.csv', r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20231221_01_\Data_20231221_01_021.mat')
