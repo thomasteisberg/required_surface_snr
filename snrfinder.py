@@ -17,11 +17,11 @@ def radargram(datafile):
     try: #attempt to open with scipy
         mat = loadmat(datafile)
         Data = mat.get('Data')
-        Data = np.transpose(Data)
+        #Data = np.transpose(Data)
     except NotImplementedError: #use hdf reader if scipy doesn't work
         mat = h5py.File(datafile, 'r')
         Data = mat.get('Data')
-        #Data = np.transpose(Data)
+        Data = np.transpose(Data)
     
     d = 10 * np.log10(np.abs(Data))
     
@@ -44,41 +44,32 @@ def snrfinder(csv, matfile):
     #Load .mat file
     try: #attempt to open with scipy
         mat = loadmat(matfile)
-        Data = mat.get('Data')
-        #Data = np.array(Data, copy = False)
-        Data = np.transpose(Data)
-        Time = mat.get('Time')
-        #Time = np.array(Time, copy = False)
-        Time = np.transpose(Time)
-        LonMat = mat.get('Longitude')
-        #LonMat = np.array(LonMat, copy = False)
+        Data = np.array(mat['Data'], dtype=np.float32)  # Explicitly set dtype to save memory
+        Data = np.transpose(Data)  # Transpose to match MATLAB indexing if necessary
+        Time = np.array(mat['Time'], dtype=np.float32)
+        LonMat = np.array(mat['Longitude'], dtype=np.float32)
         LonMat = np.transpose(LonMat)
-        LatMat = mat.get('Latitude')
-        #LatMat = np.array(LatMat, copy = False)
+        LatMat = np.array(mat['Latitude'], dtype=np.float32)
         LatMat = np.transpose(LatMat)
         sci = True
     except NotImplementedError: #use hdf reader if scipy doesn't work
-        mat = h5py.File(matfile, 'r')
-        Data = mat.get('Data')
-        #Data = np.array(Data, copy = False)
-        Time = mat.get('Time')
-        #Time = np.array(Time, copy = False)
-        LonMat = mat.get('Longitude')
-        #LonMat = np.array(LonMat, copy = False)
-        LatMat = mat.get('Latitude')
-        #LatMat = np.array(LatMat, copy = False)
+        with h5py.File(matfile, 'r') as mat:
+            Data = np.array(mat['Data'], dtype=np.float32)
+            Time = np.array(mat['Time'], dtype=np.float32)
+            LonMat = np.array(mat['Longitude'], dtype=np.float32)
+            LatMat = np.array(mat['Latitude'], dtype=np.float32)
+            # No transpose needed here, assuming HDF5 files are structured correctly
         hdf = True
 
     #radargram(matfile)
     # Load .csv file
     csvdata = pd.read_csv(csv)
-    surf = csvdata['SURFACE']
-    bott = csvdata['BOTTOM']
-    elev = csvdata['ELEVATION']
-    thicc = csvdata['THICK']
-    csv_lon = csvdata['LON']
-    csv_lat = csvdata['LAT']
-    utc = csvdata['UTCTIMESOD']
+    surf = csvdata['SURFACE'].values.astype(np.float32)
+    bott = csvdata['BOTTOM'].values.astype(np.float32)
+    elev = csvdata['ELEVATION'].values.astype(np.float32)
+    thicc = csvdata['THICK'].values.astype(np.float32)
+    csv_lon = csvdata['LON'].values.astype(np.float32)
+    csv_lat = csvdata['LAT'].values.astype(np.float32)
 
     e_ice = 3.15
 
@@ -125,8 +116,8 @@ def snrfinder(csv, matfile):
         bedwatts = np.abs(Data[slowtime, fasttimeB]) * geom_spreadingB
 
         # Plot slowtime and fasttime on radargram(for debugging purposes)
-        """ plt.scatter(fasttimeS, slowtime,     color='red', s=20)
-        plt.scatter(fasttimeB, slowtime,     color='blue', s=20) """
+        """plt.scatter(slowtime, fasttimeS,      color='red', s=20)
+        plt.scatter(slowtime, fasttimeB,      color='blue', s=20)"""
 
         # calculate required surface snr (dB)
         snr = 10 * np.log10(surfwatts / bedwatts)
@@ -136,21 +127,18 @@ def snrfinder(csv, matfile):
         y_list.append(y)
         snr_list.append(snr)
 
-    #plt.scatter(mat_i_list, csv_i_list) 
+    # Free up memory by explicitly deleting large arrays that are no longer needed
+    del Data, Time, LonMat, LatMat, xMat, yMat, xCSV, yCSV, surf, bott, elev, thicc
 
-    """ plt.title('mat file index vs csv file index')
-    plt.xlabel('mat file index')
-    plt.ylabel('csv file index')
-    plt.tight_layout()
-    plt.show() """
+    #plt.show()
 
     values = np.column_stack((x_list, y_list, snr_list))  # Returns ps coordinates + snr for future use
     return values
 
 
-#snrfinder(r'cresis_data\2023_Antarctica_BaslerMKB_\csv_20240104_01_\Data_20240104_01_029.csv', r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20240104_01_\Data_20240104_01_029.mat') # uses scipy reader, matrix dimensions are the same as in Matlab
+#snrfinder('cresis_data/2023_Antarctica_BaslerMKB_/csv_20240104_01_/Data_20240104_01_029.csv', 'cresis_data/2023_Antarctica_BaslerMKB_/CSARP_qlook_20240104_01_/Data_20240104_01_029.mat') # uses scipy reader, matrix dimensions are the same as in Matlab
 #snrfinder(r'cresis_data\2018_Antarctica_DC8_\csv_20181010_01_\Data_20181010_01_001.csv', r'cresis_data\2018_Antarctica_DC8_\CSARP_qlook_20181010_01_\Data_20181010_01_001.mat') # uses hdf reader, flips data matrix from MatLab version
-#radargram(r'cresis_data\2018_Antarctica_DC8_\CSARP_qlook_20181010_01_\Data_20181010_01_001.mat')
+#radargram('cresis_data/2018_Antarctica_DC8_/CSARP_qlook_20181010_01_/Data_20181010_01_001.mat')
 #radargram(r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20240104_01_\Data_20240104_01_029.mat')
 #snrfinder(r'cresis_data\2023_Antarctica_BaslerMKB_\csv_20231209_01_\Data_20231209_01_009.csv', r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20231209_01_\Data_20231209_01_009.mat')
 #snrfinder(r'cresis_data\2023_Antarctica_BaslerMKB_\csv_20231221_01_\Data_20231221_01_021.csv', r'cresis_data\2023_Antarctica_BaslerMKB_\CSARP_qlook_20231221_01_\Data_20231221_01_021.mat')
