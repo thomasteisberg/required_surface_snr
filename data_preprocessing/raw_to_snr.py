@@ -1,23 +1,26 @@
 import os
-from tkinter import filedialog, Tk
+#from tkinter import filedialog, Tk
 import pandas as pd
 import numpy as np
 from snrfinder import snrfinder
 from scipy.io import loadmat
 
-# Hide the root window of Tkinter
-root = Tk()
-root.withdraw()
+# # Hide the root window of Tkinter
+# root = Tk()
+# root.withdraw()
 
-# Specify the folder where the files live
-myFolder = filedialog.askdirectory()
+# # Specify the folder where the files live
+# myFolder = filedialog.askdirectory()
 
-# Check if the folder exists
-while not os.path.isdir(myFolder):
-    print(f'Error: The following folder does not exist:\n{myFolder}\nPlease specify a new folder.')
-    myFolder = filedialog.askdirectory()
-    if myFolder == '':
-        exit()  # User clicked Cancel
+# # Check if the folder exists
+# while not os.path.isdir(myFolder):
+#     print(f'Error: The following folder does not exist:\n{myFolder}\nPlease specify a new folder.')
+#     myFolder = filedialog.askdirectory()
+#     if myFolder == '':
+#         exit()  # User clicked Cancel
+
+# Directory where downloaded data can be found
+myFolder = "cresis_data"
 
 # Top-level directories to process
 top_level_dirs = ['2023_Antarctica_BaslerMKB_', '2022_Antarctica_BaslerMKB_', '2018_Antarctica_DC8_', '2018_Antarctica_Ground_', '2019_Antarctica_GV_']
