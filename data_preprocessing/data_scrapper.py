@@ -12,16 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import time
-
-# Base URL for the main directory
-base_url = "https://data.cresis.ku.edu/data/rds/"
-
-# Directory to save the downloaded files
-download_dir = "cresis_data"
-os.makedirs(download_dir, exist_ok=True)
-
-# Log file to keep track of progress
-log_file = "download_log.txt"
+import argparse
 
 # Function to read the log file
 def read_log():
@@ -97,7 +88,7 @@ def scrape_files(base_url, subdir, file_ext, subfolder='', exclude_keyword=None)
         scrape_files(base_url, subdir, file_ext, new_subfolder, exclude_keyword)
 
 # Function to get the list of relevant directories
-def get_relevant_directories(base_url):
+def get_relevant_directories(base_url, dataset='Antarctica', year=2023, exclude_keywords=None):
     print(f"Accessing base URL: {base_url}")
     response = requests.get(base_url)
     if response.status_code != 200:
@@ -109,17 +100,49 @@ def get_relevant_directories(base_url):
     for link in soup.find_all('a'):
         href = link.get('href')
         print(f"Found href: {href}")
-        if href and 'Antarctica' in href: # Arguments to change according to user's needs
-            year = href.split('_')[0]
-            if year.isdigit() and int(year) == 2023: # Arguments to change according to user's needs
+        if href and dataset in href: # Arguments to change according to user's needs
+            if exclude_keywords:
+                if any(keyword in href for keyword in exclude_keywords):
+                    continue
+            year_str = href.split('_')[0]
+            if int(year_str) == year: # Arguments to change according to user's needs
                 relevant_dirs.append(href)
     if not relevant_dirs:
         print("No relevant directories found")
     return relevant_dirs
 
-# Main code to scrape data for the years 2018 to 2023
-relevant_directories = get_relevant_directories(base_url)
-for subdir in relevant_directories:
-    print(f"Scraping data from {subdir}")
-    scrape_files(base_url, subdir, '.csv', subfolder='csv/', exclude_keyword='GroundGHOST')
-    scrape_files(base_url, subdir, '.mat', subfolder='CSARP_qlook/', exclude_keyword='_img_')
+# Base URL for the main directory
+base_url = "https://data.cresis.ku.edu/data/rds/"
+
+# Directory to save the downloaded files
+download_dir = "cresis_data"
+os.makedirs(download_dir, exist_ok=True)
+
+# Log file to keep track of progress
+log_file = "download_log.txt"
+
+# Filters for data to download
+year = 2023
+dataset = 'Antarctica'
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Scrape and download files from CReSIS data.")
+    parser.add_argument('--download_dir', type=str, default=download_dir, help="Directory to save downloaded files")
+    parser.add_argument('--year', type=int, default=2023, help="Year to scrape data for")
+    parser.add_argument('--dataset', type=str, default='Antarctica', help="Dataset to scrape data for (Antarctica or Greenland), case sensitive")
+    parser.add_argument('--log-file', type=str, default=log_file, help="Log file to keep track of downloaded files")
+    args = parser.parse_args()
+
+    download_dir = args.download_dir
+    year = args.year
+    dataset = args.dataset
+    log_file = args.log_file
+    os.makedirs(download_dir, exist_ok=True)
+
+    print("Looking for relevant directories for dataset:", dataset, "and year:", year)
+
+    relevant_directories = get_relevant_directories(base_url, dataset=dataset, year=year, exclude_keywords=['Ground', 'ground'])
+    for subdir in relevant_directories:
+        print(f"Scraping data from {subdir}")
+        scrape_files(base_url, subdir, '.csv', subfolder='csv/', exclude_keyword='GroundGHOST')
+        scrape_files(base_url, subdir, '.mat', subfolder='CSARP_qlook/', exclude_keyword='_img_')
