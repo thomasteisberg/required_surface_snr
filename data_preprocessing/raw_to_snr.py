@@ -23,8 +23,8 @@ from scipy.io import loadmat
 myFolder = "cresis_data"
 
 # Top-level directories to process
-top_level_dirs = ['2023_Antarctica_BaslerMKB_', '2022_Antarctica_BaslerMKB_', '2018_Antarctica_DC8_', '2018_Antarctica_Ground_', '2019_Antarctica_GV_']
-snr_list = []
+top_level_dirs = ['2023_Antarctica_BaslerMKB_', '2022_Antarctica_BaslerMKB_', '2018_Antarctica_DC8_', '2019_Antarctica_GV_']
+snr_dfs_list = []
 
 for top_level_dir in top_level_dirs:
     base_dir = os.path.join(myFolder, top_level_dir)
@@ -50,25 +50,19 @@ for top_level_dir in top_level_dirs:
         csvPath = os.path.join('cresis_data', csvRelativePath)
         matPath = os.path.join('cresis_data', matRelativePath)
 
-        try:  # attempt to open mat file
-            mat = loadmat(matPath)
-            print(f"Using scipy reader for .mat files")
-        except NotImplementedError:
-            print(f"Using hdf reader for .mat files")
-            pass
-        except OSError as e:
-            print(f"Error opening file '{matPath}': {e}. Moving on to the next file.")
-            continue  # next file path
-
         print(f'Now reading {csvPath} and {matPath}')
 
-        snrs = snrfinder(csvPath, matPath)
-        snr_list.append(snrs)
+        try:
+            snrs = snrfinder(csvPath, matPath)
+            df = pd.DataFrame(snrs, columns=['x', 'y', 'snr'])
+            snr_dfs_list.append(df)
+        except Exception as e:
+            print(f'Error processing {csvPath} and {matPath}: {e}')
+            e.print()
+            continue
 
 # CRESIS DATA
-snr_list = np.vstack(snr_list)
-
-df = pd.DataFrame(snr_list, columns=['x', 'y', 'snr'])
+df = pd.concat(snr_dfs_list, ignore_index=True)
 
 # Save the CSV file in a cross-platform way
 output_csv_path = os.path.join(myFolder, 'snr_data.csv')
