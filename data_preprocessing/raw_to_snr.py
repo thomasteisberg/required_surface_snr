@@ -58,7 +58,7 @@ for top_level_dir in top_level_dirs:
             snr_dfs_list.append(df)
         except Exception as e:
             print(f'Error processing {csvPath} and {matPath}: {e}')
-            e.print()
+            print(e)
             continue
 
 # CRESIS DATA
