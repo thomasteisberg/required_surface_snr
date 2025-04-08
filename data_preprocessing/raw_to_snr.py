@@ -26,6 +26,8 @@ myFolder = "cresis_data"
 top_level_dirs = ['2023_Antarctica_BaslerMKB_', '2022_Antarctica_BaslerMKB_', '2018_Antarctica_DC8_', '2019_Antarctica_GV_']
 snr_dfs_list = []
 
+stats = {tld: {'success': 0, 'no_mat': 0, 'other_failure': 0} for tld in top_level_dirs}
+
 for top_level_dir in top_level_dirs:
     base_dir = os.path.join(myFolder, top_level_dir)
     if not os.path.isdir(base_dir):
@@ -41,6 +43,7 @@ for top_level_dir in top_level_dirs:
 
         if name not in mat_files:
             print(f'Could not find {name}.mat')
+            stats[top_level_dir]['no_mat'] += 1
             continue
 
         csvRelativePath = os.path.relpath(csvfullFileName, myFolder)
@@ -55,10 +58,14 @@ for top_level_dir in top_level_dirs:
         try:
             snrs = snrfinder(csvPath, matPath)
             df = pd.DataFrame(snrs, columns=['x', 'y', 'snr'])
+            df['source_csv_file'] = os.path.basename(csvPath)
+            df['source_mat_file'] = os.path.basename(matPath)
             snr_dfs_list.append(df)
+            stats[top_level_dir]['success'] += 1
         except Exception as e:
             print(f'Error processing {csvPath} and {matPath}: {e}')
             print(e)
+            stats[top_level_dir]['other_failure'] += 1
             continue
 
 # CRESIS DATA
@@ -68,3 +75,9 @@ df = pd.concat(snr_dfs_list, ignore_index=True)
 output_csv_path = os.path.join(myFolder, 'snr_data.csv')
 df.to_csv(output_csv_path, index=False)
 print(f'Data saved to {output_csv_path}')
+
+# Print a summary of the results
+print("\nSummary of results:")
+for tld, result in stats.items():
+    print(f"{tld}: {result['success']} successes, {result['no_mat']} missing .mat files, {result['other_failure']} other failures")
+print(f"Total entires in exported CSV file: {len(df)}")
