@@ -14,18 +14,6 @@ import os
 import time
 import argparse
 
-# Function to read the log file
-def read_log():
-    if os.path.exists(log_file):
-        with open(log_file, 'r') as file:
-            return set(line.strip() for line in file)
-    return set()
-
-# Function to write to the log file
-def write_log(entry):
-    with open(log_file, 'a') as file:
-        file.write(f"{entry}\n")
-
 # Function to download files with retry logic
 def download_file(url, download_path, retries=3, backoff_factor=1):
     for attempt in range(retries):
@@ -37,7 +25,6 @@ def download_file(url, download_path, retries=3, backoff_factor=1):
                         if chunk:  # filter out keep-alive new chunks
                             file.write(chunk)
                 print(f"Downloaded: {url}")
-                write_log(url)
                 return True
             else:
                 print(f"Failed to download: {url} with status code: {response.status_code}")
@@ -53,8 +40,7 @@ def download_file(url, download_path, retries=3, backoff_factor=1):
     return False
 
 # Function to scrape files from a specific directory
-def scrape_files(base_url, subdir, file_ext, subfolder='', exclude_keyword=None):
-    url = f"{base_url}{subdir}{subfolder}".rstrip('/') + '/'
+def scrape_files(url, download_dir, file_ext, exclude_keyword=None):
     print(f"Accessing URL: {url}")
     response = requests.get(url)
     if response.status_code != 200:
@@ -71,21 +57,18 @@ def scrape_files(base_url, subdir, file_ext, subfolder='', exclude_keyword=None)
         elif href and href.endswith('/') and not href.startswith('../') and not href.startswith('/'):
             directories.append(href)
 
-    downloaded_files = read_log()
-
     if files:
-        subdir_path = os.path.join(download_dir, subdir.replace('/', '_'), subfolder.replace('/', '_'))
-        os.makedirs(subdir_path, exist_ok=True)
+        os.makedirs(download_dir, exist_ok=True)
         for file in files:
-            file_url = url + file
-            download_path = os.path.join(subdir_path, file)
-            if file_url not in downloaded_files:
-                download_file(file_url, download_path)
+            file_url = os.path.join(url, file)
+            download_path = os.path.join(download_dir, file)
+            download_file(file_url, download_path)
 
     for directory in directories:
         print(f"Found subdirectory: {directory}, navigating into it")
-        new_subfolder = os.path.join(subfolder.rstrip('/'), directory.lstrip('/'))
-        scrape_files(base_url, subdir, file_ext, new_subfolder, exclude_keyword)
+        new_url = os.path.join(url, directory)
+        new_download_dir = os.path.join(download_dir, directory)
+        scrape_files(new_url, new_download_dir, file_ext, exclude_keyword=exclude_keyword)
 
 # Function to get the list of relevant directories
 def get_relevant_directories(base_url, dataset='Antarctica', year=2023, exclude_keywords=None):
@@ -100,12 +83,12 @@ def get_relevant_directories(base_url, dataset='Antarctica', year=2023, exclude_
     for link in soup.find_all('a'):
         href = link.get('href')
         print(f"Found href: {href}")
-        if href and dataset in href: # Arguments to change according to user's needs
+        if href and dataset in href: # Match dataset: Antarctica or Greenland
             if exclude_keywords:
                 if any(keyword in href for keyword in exclude_keywords):
                     continue
             year_str = href.split('_')[0]
-            if int(year_str) == year: # Arguments to change according to user's needs
+            if int(year_str) == year: # Match year
                 relevant_dirs.append(href)
     if not relevant_dirs:
         print("No relevant directories found")
@@ -114,29 +97,20 @@ def get_relevant_directories(base_url, dataset='Antarctica', year=2023, exclude_
 # Base URL for the main directory
 base_url = "https://data.cresis.ku.edu/data/rds/"
 
-# Directory to save the downloaded files
-download_dir = "cresis_data"
-os.makedirs(download_dir, exist_ok=True)
-
-# Log file to keep track of progress
-log_file = "download_log.txt"
-
 # Filters for data to download
 year = 2023
 dataset = 'Antarctica'
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Scrape and download files from CReSIS data.")
-    parser.add_argument('--download_dir', type=str, default=download_dir, help="Directory to save downloaded files")
+    parser.add_argument('--download_dir', type=str, default="cresis_data", help="Directory to save downloaded files")
     parser.add_argument('--year', type=int, default=2023, help="Year to scrape data for")
     parser.add_argument('--dataset', type=str, default='Antarctica', help="Dataset to scrape data for (Antarctica or Greenland), case sensitive")
-    parser.add_argument('--log-file', type=str, default=log_file, help="Log file to keep track of downloaded files")
     args = parser.parse_args()
 
     download_dir = args.download_dir
     year = args.year
     dataset = args.dataset
-    log_file = args.log_file
     os.makedirs(download_dir, exist_ok=True)
 
     print("Looking for relevant directories for dataset:", dataset, "and year:", year)
@@ -144,5 +118,5 @@ if __name__ == "__main__":
     relevant_directories = get_relevant_directories(base_url, dataset=dataset, year=year, exclude_keywords=['Ground', 'ground'])
     for subdir in relevant_directories:
         print(f"Scraping data from {subdir}")
-        scrape_files(base_url, subdir, '.csv', subfolder='csv/', exclude_keyword='GroundGHOST')
-        scrape_files(base_url, subdir, '.mat', subfolder='CSARP_qlook/', exclude_keyword='_img_')
+        scrape_files(os.path.join(base_url, subdir, 'csv'), os.path.join(download_dir, subdir, 'csv'), '.csv')
+        scrape_files(os.path.join(base_url, subdir, 'CSARP_qlook'), os.path.join(download_dir, subdir, 'CSARP_qlook'), '.mat', exclude_keyword='_img_')
