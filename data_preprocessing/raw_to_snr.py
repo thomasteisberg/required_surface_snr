@@ -35,10 +35,18 @@ if __name__ == "__main__":
         for csvPath in csv_list:
             name = os.path.splitext(os.path.basename(csvPath))[0]
 
+            # Old style CSV names are in the form "Data_20170429_01_075_183525.csv" but match to MAT files without the last "_183525" part
+            old_style_match = '_'.join(name.split('_')[:-1])
+
             if name not in mat_files:
-                print(f'Could not find {name}.mat')
-                stats[top_level_dir]['no_mat'] += 1
-                continue
+                # Check if the old style match exists
+                if old_style_match in mat_files:
+                    print(f'Found old style match for {name}: {old_style_match}.mat')
+                    name = old_style_match
+                else:
+                    print(f'Could not find {name}.mat')
+                    stats[top_level_dir]['no_mat'] += 1
+                    continue
 
             matPath = mat_files[name]
 
@@ -49,6 +57,7 @@ if __name__ == "__main__":
                 df = pd.DataFrame(snrs, columns=['x', 'y', 'snr'])
                 df['source_csv_file'] = os.path.basename(csvPath)
                 df['source_mat_file'] = os.path.basename(matPath)
+                df['source_dir'] = os.path.basename(top_level_dir)
                 snr_dfs_list.append(df)
                 stats[top_level_dir]['success'] += 1
             except Exception as e:

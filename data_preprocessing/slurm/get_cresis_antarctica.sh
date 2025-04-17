@@ -7,7 +7,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --mem-per-cpu=2G
 #SBATCH -C CLASS:SH3_CBASE|CLASS:SH3_CPERF
-#SBATCH --array=2018-2023
+#SBATCH --array=2009-2023
 #SBATCH --output=slurm-cresis-antarctica-%A_%a.out
 
 # Get current date and hostname for logging
