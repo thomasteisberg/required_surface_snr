@@ -5,14 +5,28 @@ import matplotlib.pyplot as plt
 import pyproj
 import h5py
 
-def ll2ps(lat, lon):
+epsg_3031 = pyproj.Proj("EPSG:3031")
+epsg_3413 = pyproj.Proj("EPSG:3413")
+#epsg_3031 = pyproj.Proj(proj='stere', lat_ts=-71, lat_0=-90, lon_0=0, k=1, x_0=0, y_0=0, datum='WGS84')
+#epsg_3413 = pyproj.Proj(proj='stere', lat_ts=70, lat_0=90, lon_0=-45, k=1, x_0=0, y_0=0, datum='WGS84')
+#proj = crs_3413 = ccrs.Stereographic(central_latitude=90, central_longitude=-45, true_scale_latitude=70) # All Greenland data will be projected (if needed) to this
+
+def ll2ps(lat, lon, proj_ps=epsg_3031):
     # Define the polar stereographic projection
     # For example, EPSG:3031 is commonly used for the Antarctic region
-    proj_ps = pyproj.Proj(proj='stere', lat_ts=-71, lat_0=-90, lon_0=0, k=1, x_0=0, y_0=0, datum='WGS84')
+    #proj_ps = pyproj.Proj(proj='stere', lat_ts=-71, lat_0=-90, lon_0=0, k=1, x_0=0, y_0=0, datum='WGS84')
     x, y = proj_ps(lon, lat)
     return x, y
 
-def snrfinder(csv, matfile):
+def snrfinder(csv, matfile, ice_sheet='antarctica'):
+
+    if ice_sheet == 'greenland':
+        proj_ps = epsg_3413
+    elif ice_sheet == 'antarctica':
+        proj_ps = epsg_3031
+    else:
+        raise ValueError("Invalid ice sheet specified. Use 'greenland' or 'antarctica'.")
+
     sci = False
     hdf = False
     #Load .mat file
@@ -86,7 +100,7 @@ def snrfinder(csv, matfile):
         lat_list.append(lat[i])
         snr_list.append(snr)
 
-    x, y = ll2ps(lat_list, lon_list)
+    x, y = ll2ps(lat_list, lon_list, proj_ps=proj_ps)  # Convert lat/lon to polar stereographic coordinates
     """ plt.scatter(x, y, 20, snr_list, cmap='viridis')
     cb = plt.colorbar()
     cb.set_label('snr')

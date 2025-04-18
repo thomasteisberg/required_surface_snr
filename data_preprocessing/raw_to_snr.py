@@ -16,6 +16,8 @@ if __name__ == "__main__":
     top_level_dirs = [ f.name for f in os.scandir(args.data) if f.is_dir() and args.dataset in f.name ]
     print(top_level_dirs)
 
+    dataset = args.dataset.lower()
+
     print(f"Found directories to process: {top_level_dirs}")
 
     snr_dfs_list = []
@@ -53,7 +55,7 @@ if __name__ == "__main__":
             print(f'Now reading {csvPath} and {matPath}')
 
             try:
-                snrs = snrfinder(csvPath, matPath)
+                snrs = snrfinder(csvPath, matPath, ice_sheet=dataset)
                 df = pd.DataFrame(snrs, columns=['x', 'y', 'snr'])
                 df['source_csv_file'] = os.path.basename(csvPath)
                 df['source_mat_file'] = os.path.basename(matPath)

@@ -98,3 +98,31 @@ The table below shows a summary of the data sources:
 | Ice Thickness and Floating Mask | [BedMachine Greenland (NSIDC IDBMG4)](https://nsidc.org/data/idbmg4/versions/5) | [BedMachine Antarctica (NSIDC-0756)](https://nsidc.org/data/nsidc-0756/versions/3) |
 | Surface Velocity | [NASA ITS_LIVE 120 m Mosaic](https://its-live.jpl.nasa.gov/) [(Direct S3 data link)](https://its-live-data.s3.amazonaws.com/velocity_mosaic/v2/static/ITS_LIVE_velocity_120m_RGI05A_0000_v02.nc) | [MEaSUREs Phase-Based Antarctic Surface Velocities (NSIDC-0754)](https://nsidc.org/data/nsidc-0754/versions/1) |
 | 2 m Surface Temperature | [ECMWF ERA5 Monthly Averages](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means?tab=overview) |
+
+Note that the ERA5 2 meter surface temperature dataset is global, so the same data file is used for both ice sheets.
+
+Except for the ERA5 dataset, all of these datasets can be automatically downloaded by running the `external_datasets/download_datasets.sh` script. The script will prompt you for your NASA Earthdata username and password. If you don't have an account, you can [make one for free](https://urs.earthdata.nasa.gov/users/new).
+
+The ERA5 dataset can be accessed [here](https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means?tab=overview). Details of the requsted dataset are as follows:
+
+```
+dataset = "reanalysis-era5-single-levels-monthly-means"
+request = {
+    "product_type": ["monthly_averaged_ensemble_members"],
+    "variable": ["2m_temperature"],
+    "year": [
+        "2018", "2019", "2020",
+        "2021", "2022", "2023"
+    ],
+    "month": ["01"],
+    "time": ["00:00"],
+    "data_format": "netcdf",
+    "download_format": "unarchived"
+}
+```
+
+### Step 4: Interpolate external datasets to radar data
+
+Finally, the notebook `interpolate_external_datasets.ipynb` is used to do a nearest neighbors interpolation of each of the input datasets to the radar data. It also sub-samples the radar data to produce a reasonable along-track spacing.
+
+The notebook must be run once for each of the separate datasets (CReSIS/Antarctica, CReSIS/Greenland, UTIG/Antarctica). Uncomment the appropriate line in the "Dataset options" cell.
