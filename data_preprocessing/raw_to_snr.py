@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from snrfinder import snrfinder
+from snrfinder import calculate_rssnr
 from scipy.io import loadmat
 import argparse
 
@@ -55,14 +55,13 @@ if __name__ == "__main__":
             print(f'Now reading {csvPath} and {matPath}')
 
             try:
-                snrs = snrfinder(csvPath, matPath, ice_sheet=dataset)
-                df = pd.DataFrame(snrs, columns=['x', 'y', 'snr'])
+                df = calculate_rssnr(csvPath, matPath, ice_sheet=dataset)
                 df['source_csv_file'] = os.path.basename(csvPath)
                 df['source_mat_file'] = os.path.basename(matPath)
                 df['source_dir'] = os.path.basename(top_level_dir)
                 snr_dfs_list.append(df)
                 stats[top_level_dir]['success'] += 1
-            except Exception as e:
+            except ValueError as e:
                 print(f'Error processing {csvPath} and {matPath}: {e}')
                 print(e)
                 stats[top_level_dir]['other_failure'] += 1
