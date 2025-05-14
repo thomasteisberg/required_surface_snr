@@ -55,7 +55,7 @@ if __name__ == "__main__":
             print(f'Now reading {csvPath} and {matPath}')
 
             try:
-                df = calculate_rssnr(csvPath, matPath, ice_sheet=dataset)
+                df = calculate_rssnr(csvPath, matPath, ice_sheet=dataset, save_plot=False)
                 df['source_csv_file'] = os.path.basename(csvPath)
                 df['source_mat_file'] = os.path.basename(matPath)
                 df['source_dir'] = os.path.basename(top_level_dir)
