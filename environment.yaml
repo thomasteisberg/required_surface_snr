@@ -1,9 +1,9 @@
-name: rssnr
+name: rssnr2
 channels:
   - conda-forge
   - defaults
 dependencies:
-  - python>=3.10
+  - python[version='>=3.10']
   - pip
   - conda[version='>=23.11.0']
   - mamba[version='>=1.5.5']
@@ -23,3 +23,7 @@ dependencies:
   - cartopy
   - seaborn
   - dask
+  - pymc
+  - corner
+  - ipywidgets
+
