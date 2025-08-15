@@ -1,0 +1,41 @@
+# INPUT
+# All configuration relevant to what data gets loaded
+input:
+  collections: # TODO: Update this after we update the xOPR search API
+    - 2016_Antarctica_DC8
+    - 2022_Antarctica_BaslerMKB
+    - 2023_Antarctica_BaslerMKB
+  flights_per_collection_limit: -1
+
+# OUTPUT
+# All configuration relevant to where output data gets written
+output:
+  # Directory or cloud bucket to write per-flight-line output caches
+  # This is read by fsspec, so any fsspec-compatible URL should work
+  processed_flight_cache_url: "tmp"
+  
+
+# PROCESSING_FLIGHTS
+# This section contains configuration for how radar data gets processed
+processing_flights:
+  # If true, the code will check for existing cached files before processing.
+  # If a cached file exists, it will be used instead of reprocessing.
+  check_for_cached_files: true
+  
+  # Used to invalidate out-of-date caches. Existing cache files
+  # are checked against this revision ID. If the revision ID
+  # in the cache file does not match this, the cache is considered
+  # out-of-date and will be reprocessed.
+  cache_revision_id: 2
+
+  # The estimated in-ice distance from a picked layer to search for
+  # the maximum power return. Unit: meters
+  layer_selection_margin_m: 30
+
+  # The assumed relative permittivity (\epsilon_r) of the ice.
+  # Unit: dimensionless
+  ice_relative_permittivity: 3.17
+
+  # Available data will be stacked within this slow time interval
+  # to yield uniformly spaced data in slow time. Unit: seconds
+  downsample_interval_s: 1
